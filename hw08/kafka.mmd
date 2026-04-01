@@ -1,0 +1,29 @@
+flowchart LR
+    A[Внешние и внутренние источники,<br/> редакторы, судебные фиды, реестры] --> P[Kafka producers<br/>idempotent producer, acks=all]
+
+    P --> T1[(cp.docs.law.raw.v1<br/>24 partitions<br/>key=document_id)]
+    P --> T2[(cp.docs.court.raw.v1<br/>24 partitions<br/>key=case_id)]
+    P --> T3[(cp.docs.edition.raw.v1<br/>12 partitions<br/>key=base_document_id)]
+
+    T1 --> G1[cg-normalizer]
+    T2 --> G1
+    T3 --> G1
+
+    G1 --> T4[(cp.docs.normalized.v1<br/>24 partitions<br/>key=document_id)]
+
+    T4 --> G2[cg-versioning]
+    T4 --> G3[cg-relation-extractor]
+    T4 --> G4[cg-search-indexer]
+    T4 --> G5[cg-analytics-sink]
+
+    G2 --> T5[(cp.docs.current-state.v1<br/>12 partitions<br/>cleanup.policy=compact)]
+    G2 --> T6[(cp.docs.edition-events.v1<br/>12 partitions<br/>cleanup.policy=compact,delete)]
+
+    G3 --> T7[(cp.docs.references.v1<br/>12 partitions<br/>key=source_document_id)]
+    G4 --> S[(Search index / OpenSearch)]
+    G5 --> D[(Data Lake / DWH)]
+
+    T1 --> Q[(cp.docs.dlq.v1<br/>4 partitions)]
+    T2 --> Q
+    T3 --> Q
+    T4 --> Q
