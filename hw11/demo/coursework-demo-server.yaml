@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coursework-demo-server-script
+data:
+  prepare_archives.py: |
+    from pathlib import Path
+    import shutil
+    import tarfile
+    import zipfile
+
+    root = Path("/srv/data")
+    root.mkdir(parents=True, exist_ok=True)
+
+    projects = {
+        "coursework-ok": {
+            "README.md": "# AntiPlagiarism\n\nDemo project for Argo Workflows.\n",
+            "go.mod": "module antiplagiarism\n\ngo 1.22\n",
+            "cmd/main.go": "package main\n\nfunc main() {}\n",
+            "internal/checker.go": "package internal\n",
+        },
+        "coursework-broken": {
+            "README.md": "# Broken Coursework\n\nThis archive misses the cmd directory.\n",
+            "go.mod": "module broken-coursework\n\ngo 1.22\n",
+            "docs/notes.md": "The cmd directory is intentionally absent.\n",
+        },
+    }
+
+    def write_project(base_dir: Path, files: dict[str, str]) -> None:
+        if base_dir.exists():
+            shutil.rmtree(base_dir)
+        for relative_path, content in files.items():
+            target = base_dir / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+    def make_zip(source_dir: Path, target_file: Path) -> None:
+        with zipfile.ZipFile(target_file, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(source_dir.rglob("*")):
+                archive.write(path, path.relative_to(source_dir))
+
+    def make_tgz(source_dir: Path, target_file: Path) -> None:
+        with tarfile.open(target_file, "w:gz") as archive:
+            for path in sorted(source_dir.rglob("*")):
+                archive.add(path, arcname=path.relative_to(source_dir))
+
+    for project_name, files in projects.items():
+        project_dir = root / project_name
+        write_project(project_dir, files)
+        make_zip(project_dir, root / f"{project_name}.zip")
+        make_tgz(project_dir, root / f"{project_name}.tgz")
+
+    index = [
+        "<html><body><h1>CourseWork Demo Archives</h1><ul>",
+        '<li><a href="/coursework-ok.zip">coursework-ok.zip</a></li>',
+        '<li><a href="/coursework-ok.tgz">coursework-ok.tgz</a></li>',
+        '<li><a href="/coursework-broken.zip">coursework-broken.zip</a></li>',
+        '<li><a href="/coursework-broken.tgz">coursework-broken.tgz</a></li>',
+        "</ul></body></html>",
+    ]
+    (root / "index.html").write_text("\n".join(index) + "\n", encoding="utf-8")
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coursework-demo-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coursework-demo-server
+  template:
+    metadata:
+      labels:
+        app: coursework-demo-server
+    spec:
+      volumes:
+        - name: demo-script
+          configMap:
+            name: coursework-demo-server-script
+        - name: demo-data
+          emptyDir: {}
+      containers:
+        - name: http-server
+          image: python:3.12-slim
+          command: [sh, -c]
+          args:
+            - |
+              set -eu
+              cp /config/prepare_archives.py /srv/prepare_archives.py
+              python /srv/prepare_archives.py
+              cd /srv/data
+              python -m http.server 8000
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: demo-script
+              mountPath: /config
+              readOnly: true
+            - name: demo-data
+              mountPath: /srv/data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coursework-demo-server
+spec:
+  selector:
+    app: coursework-demo-server
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

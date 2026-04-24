@@ -1,0 +1,78 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: coursework-check-
+spec:
+  entrypoint: coursework-dag
+  arguments:
+    parameters:
+      # Значения по умолчанию нужны для демонстрации и могут быть переопределены через argo submit -p.
+      - name: project-url
+        value: https://example.com/coursework.zip
+      - name: archive-filename
+        value: coursework.zip
+      - name: project-name
+        value: AntiPlagiarism
+      - name: student-name
+        value: Alexander Vasyukov
+      - name: required-paths
+        value: README.md,go.mod,cmd
+  templates:
+    - name: coursework-dag
+      dag:
+        tasks:
+          - name: download-project
+            templateRef:
+              name: download-artifact-template
+              template: download-artifact
+            arguments:
+              parameters:
+                - name: file-url
+                  value: "{{workflow.parameters.project-url}}"
+                - name: output-filename
+                  value: "{{workflow.parameters.archive-filename}}"
+
+          - name: unpack-project
+            depends: download-project
+            templateRef:
+              name: unpack-archive-template
+              template: unpack-archive
+            arguments:
+              parameters:
+                - name: archive-filename
+                  value: "{{workflow.parameters.archive-filename}}"
+              artifacts:
+                - name: archive
+                  from: "{{tasks.download-project.outputs.artifacts.downloaded-file}}"
+
+          - name: check-project
+            depends: unpack-project
+            templateRef:
+              name: project-check-template
+              template: check-project
+            arguments:
+              parameters:
+                - name: required-paths
+                  value: "{{workflow.parameters.required-paths}}"
+              artifacts:
+                - name: project
+                  from: "{{tasks.unpack-project.outputs.artifacts.unpacked-project}}"
+
+          - name: generate-report
+            depends: check-project
+            templateRef:
+              name: report-template
+              template: generate-report
+            arguments:
+              parameters:
+                - name: project-name
+                  value: "{{workflow.parameters.project-name}}"
+                - name: student-name
+                  value: "{{workflow.parameters.student-name}}"
+                - name: check-status
+                  value: "{{tasks.check-project.outputs.parameters.check-status}}"
+                - name: missing-paths
+                  value: "{{tasks.check-project.outputs.parameters.missing-paths}}"
+              artifacts:
+                - name: check-report
+                  from: "{{tasks.check-project.outputs.artifacts.check-report}}"

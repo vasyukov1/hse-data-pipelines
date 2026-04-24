@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: download-artifact-template
+spec:
+  entrypoint: download-artifact
+  templates:
+    - name: download-artifact
+      inputs:
+        parameters:
+          - name: file-url
+            description: URL архива или другого файла, который нужно скачать.
+          - name: output-filename
+            description: Имя файла внутри рабочего каталога контейнера.
+      container:
+        image: python:3.12-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -eu
+            mkdir -p /work
+
+            python - <<'PY'
+            import pathlib
+            import urllib.request
+
+            url = "{{inputs.parameters.file-url}}"
+            target = pathlib.Path("/work/{{inputs.parameters.output-filename}}")
+
+            print(f"Downloading file from: {url}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+
+            with urllib.request.urlopen(url) as response:
+                target.write_bytes(response.read())
+
+            print(f"Downloaded artifact saved to {target}")
+            print(f"Downloaded size: {target.stat().st_size} bytes")
+            PY
+
+            ls -lh /work
+      outputs:
+        artifacts:
+          # Возвращаем скачанный файл как универсальный артефакт для следующих шаблонов.
+          - name: downloaded-file
+            path: /work/{{inputs.parameters.output-filename}}

@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: unpack-archive-template
+spec:
+  entrypoint: unpack-archive
+  templates:
+    - name: unpack-archive
+      inputs:
+        parameters:
+          - name: archive-filename
+            description: Имя архива внутри контейнера, по которому определяется формат.
+        artifacts:
+          # Архив передаётся предыдущим шагом в стандартный входной путь.
+          - name: archive
+            path: /work/input/{{inputs.parameters.archive-filename}}
+      container:
+        image: python:3.12-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -eu
+            python - <<'PY'
+            import os
+            import pathlib
+            import sys
+            import tarfile
+            import zipfile
+
+            archive_path = pathlib.Path("/work/input/{{inputs.parameters.archive-filename}}")
+            output_dir = pathlib.Path("/work/output/project")
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            archive_name = archive_path.name
+            if archive_name.endswith(".zip"):
+                print(f"Detected zip archive: {archive_path}")
+                with zipfile.ZipFile(archive_path) as archive:
+                    archive.extractall(output_dir)
+            elif archive_name.endswith(".tar.gz") or archive_name.endswith(".tgz"):
+                print(f"Detected tar.gz archive: {archive_path}")
+                with tarfile.open(archive_path, "r:gz") as archive:
+                    archive.extractall(output_dir)
+            else:
+                print(f"Unsupported archive format: {archive_path}", file=sys.stderr)
+                sys.exit(1)
+
+            print("Unpacked project tree:")
+            print(output_dir)
+            for root, dirs, files in os.walk(output_dir):
+                current_root = pathlib.Path(root)
+                relative_root = current_root.relative_to(output_dir)
+                if relative_root.parts and len(relative_root.parts) >= 3:
+                    dirs[:] = []
+                dirs.sort()
+                files.sort()
+                for name in files:
+                    file_path = current_root / name
+                    if len(file_path.relative_to(output_dir).parts) <= 3:
+                        print(file_path)
+            PY
+      outputs:
+        artifacts:
+          # На выход отдаём уже распакованную директорию проекта.
+          - name: unpacked-project
+            path: /work/output/project

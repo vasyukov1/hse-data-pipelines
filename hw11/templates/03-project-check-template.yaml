@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: project-check-template
+spec:
+  entrypoint: check-project
+  templates:
+    - name: check-project
+      inputs:
+        parameters:
+          - name: required-paths
+            description: Список обязательных путей через запятую, например README.md,go.mod,cmd.
+        artifacts:
+          # Принимаем распакованный проект как директорию.
+          - name: project
+            path: /work/project
+      container:
+        image: python:3.12-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -eu
+            python - <<'PY'
+            from datetime import datetime, timezone
+            from pathlib import Path
+
+            project_root = Path("/work/project")
+            required_paths_raw = "{{inputs.parameters.required-paths}}"
+            status_file = Path("/tmp/check-status.txt")
+            missing_output_file = Path("/tmp/missing-paths.txt")
+            report_file = Path("/work/check-report.txt")
+
+            required_paths = [item.strip() for item in required_paths_raw.split(",") if item.strip()]
+            missing_paths = [path for path in required_paths if not (project_root / path).exists()]
+
+            status = "FAILED" if missing_paths else "OK"
+            missing_value = ",".join(missing_paths) if missing_paths else "-"
+
+            status_file.write_text(f"{status}\n", encoding="utf-8")
+            missing_output_file.write_text(f"{missing_value}\n", encoding="utf-8")
+
+            tree_lines = []
+            for current_path in sorted(project_root.rglob("*")):
+                relative = current_path.relative_to(project_root)
+                if len(relative.parts) <= 3:
+                    tree_lines.append(f"./{relative.as_posix()}")
+
+            report_lines = [
+                "CourseWork project structure check",
+                f"Generated at: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+                f"Required paths: {required_paths_raw}",
+                f"Status: {status}",
+                f"Missing paths: {missing_value}",
+                "",
+                "Project tree (depth 3):",
+                *tree_lines,
+            ]
+            report_file.write_text("\n".join(report_lines) + "\n", encoding="utf-8")
+
+            print(f"Check status: {status}")
+            print(f"Missing paths: {missing_value}")
+            print(report_file.read_text(encoding="utf-8"))
+            PY
+
+            # Шаг всегда завершается успешно, чтобы финальный отчёт собрался даже при FAILED.
+            exit 0
+      outputs:
+        parameters:
+          - name: check-status
+            valueFrom:
+              path: /tmp/check-status.txt
+          - name: missing-paths
+            valueFrom:
+              path: /tmp/missing-paths.txt
+        artifacts:
+          - name: check-report
+            path: /work/check-report.txt
