@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sales-dashboard-config
+data:
+  env-config.js: |
+    window.APP_CONFIG = {
+      envName: "prod",
+      dataSource: "s3a://warehouse-prod/reports/orders-daily/",
+      refreshSeconds: 60,
+      kpis: [
+        { title: "Выручка за день", value: "1 204 $" },
+        { title: "Заказов", value: "18" },
+        { title: "Топ товар", value: "coffee" }
+      ]
+    };

@@ -1,0 +1,81 @@
+stages:
+  - check
+  - build
+  - workflow
+  - deploy
+
+variables:
+  REGISTRY_SPARK_IMAGE: $CI_REGISTRY_IMAGE/orders-daily
+  REGISTRY_SHOWCASE_IMAGE: $CI_REGISTRY_IMAGE/sales-dashboard
+  HELM_CACHE_HOME: "$CI_PROJECT_DIR/.helm/cache"
+  HELM_CONFIG_HOME: "$CI_PROJECT_DIR/.helm/config"
+  HELM_DATA_HOME: "$CI_PROJECT_DIR/.helm/data"
+
+before_scripts:
+  - cd hw12
+
+code-check:
+  stage: check
+  image: golang:1.26
+  before_script:
+    - apt-get update
+    - apt-get install -y python3 curl
+    - curl -fsSL https://dl.k8s.io/release/v1.32.2/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
+    - chmod +x /usr/local/bin/kubectl
+    - cd hw12
+  script:
+    - go test ./...
+    - python3 -m py_compile apps/spark/orders_daily/src/job.py
+    - ./scripts/generate-workflows.sh
+    - kubectl kustomize deploy/kustomize/showcase/overlays/dev >/dev/null
+    - kubectl kustomize deploy/kustomize/showcase/overlays/prod >/dev/null
+  artifacts:
+    paths:
+      - hw12/argo/workflows/generated/
+
+build-spark-image:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor --context "$CI_PROJECT_DIR/hw12/apps/spark/orders_daily" --dockerfile "$CI_PROJECT_DIR/hw12/apps/spark/orders_daily/Dockerfile" --destination "$REGISTRY_SPARK_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+
+build-showcase:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor --context "$CI_PROJECT_DIR/hw12/apps/showcase/sales_dashboard" --dockerfile "$CI_PROJECT_DIR/hw12/apps/showcase/sales_dashboard/Dockerfile" --destination "$REGISTRY_SHOWCASE_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+generation-workflow:
+  stage: workflow
+  image: golang:1.26
+  before_script:
+    - cd hw12
+  script:
+    - sed "s#registry.example.com/data-platform/orders-daily:dev-{{CI_COMMIT_SHORT_SHA}}#$REGISTRY_SPARK_IMAGE:$CI_COMMIT_SHORT_SHA#g" argo/workflows/templates/orders-daily-dev.values.yaml > /tmp/orders-daily-dev.values.yaml
+    - go run ./cmd/workflowgen -config /tmp/orders-daily-dev.values.yaml -template argo/workflows/templates/orders-daily-workflow.tpl.yaml -output argo/workflows/generated/dev/orders-daily.yaml
+  artifacts:
+    paths:
+      - hw12/argo/workflows/generated/dev/orders-daily.yaml
+
+deploy-platform-dev:
+  stage: deploy
+  image: alpine:3.20
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  before_script:
+    - apk add --no-cache bash curl kubectl
+    - cd hw12
+  script:
+    - ./scripts/bootstrap-tools.sh
+    - ./scripts/render-helm.sh >/dev/null
+    - ./scripts/deploy-platform.sh dev
+    - kubectl apply -n argo -f argo/templates/common/report-template.yaml
+    - kubectl apply -n argo -f argo/templates/spark/spark-submit-template.yaml
+    - kubectl apply -n argo -f argo/templates/spark/spark-wait-template.yaml
+    - kubectl apply -f argo/workflows/generated/dev/orders-daily.yaml
+    - kubectl apply -k deploy/kustomize/showcase/overlays/dev

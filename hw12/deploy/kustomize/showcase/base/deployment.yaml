@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: sales-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sales-dashboard
+  template:
+    metadata:
+      labels:
+        apps: sales-dashboard
+    spec:
+      containers:
+        - name: sales-dashboard
+          image: regisrty.example.com/data-platform/sales-dashboard:0.1.0
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /usr/share/nginx/html/env-config.js
+              subPath: env-config.js
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: sales-dashboard-config

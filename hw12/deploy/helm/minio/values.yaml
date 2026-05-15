@@ -1,0 +1,9 @@
+minio:
+  fullnameOverride: minio
+  mode: standalone
+  auth:
+    rootUser: dataadmin
+    rootPassword: changeme123
+  defaultBuckets: warehouse-dev,warehouse-prod
+  persistence:
+    enabled: false

@@ -1,0 +1,9 @@
+postgresql:
+  fullnameOverride: postgresql
+  auth:
+    username: warehouse
+    password: warehouse123
+    database: warehouse
+  primary:
+    persistence:
+      enabled: false

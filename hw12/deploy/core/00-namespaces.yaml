@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-jobs
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: showcase

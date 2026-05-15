@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: report-template
+  namespace: argo
+spec:
+  entrypoint: generate-report
+  templates:
+    - name: generate-report
+      inputs:
+        parameters:
+          - name: report-title
+          - name: environment
+          - name: workflow-name
+          - name: spark-image
+          - name: input-path
+          - name: output-path
+          - name: run-state
+      container:
+        image: python:3.12-slim
+        command: [sh, -c]
+        args:
+          - |
+            set -eu
+            python - <<'PY'
+            from datetime import datetime, timezone
+            from pathlib import Path
+
+            report = Path("/tmp/final-report.md")
+            report.write_text(
+                "\n".join(
+                    [
+                        f"# {{inputs.parameters.report-title}}",
+                        "",
+                        f"- Среда: {{inputs.parameters.environment}}",
+                        f"- Workflow: {{inputs.parameters.workflow-name}}",
+                        f"- Образ Spark: {{inputs.parameters.spark-image}}",
+                        f"- Входные данные: {{inputs.parameters.input-path}}",
+                        f"- Выходные данные: {{inputs.parameters.output-path}}",
+                        f"- Итоговое состояние: {{inputs.parameters.run-state}}",
+                        f"- Время формирования: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+                    ]
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+            print(report.read_text(encoding="utf-8"))
+            PY
+      outputs:
+        artifacts:
+          - name: final-report
+            path: /tmp/final-report.md

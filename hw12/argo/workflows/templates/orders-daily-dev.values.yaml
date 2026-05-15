@@ -1,0 +1,16 @@
+workflowName: orders-daily-dev
+namespace: argo
+environment: dev
+schedule: "0 */6 * * *"
+suspend: false
+sparkImage: registry.example.com/data-platform/orders-daily:dev-{{CI_COMMIT_SHORT_SHA}}
+sparkMainFile: local:///opt/spark/app/job.py
+inputPath: s3a://warehouse-dev/orders/orders.csv
+outputPath: s3a://warehouse-dev/reports/orders-daily/
+driverCores: 1
+driverMemory: 1g
+executorCores: 1
+executorInstances: 1
+executorMemory: 1g
+serviceAccountName: spark-driver
+reportTitle: Отчёт о dev-запуске витрины продаж

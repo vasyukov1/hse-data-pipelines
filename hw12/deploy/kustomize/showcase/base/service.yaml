@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sales-dashboard
+spec:
+  selector:
+    app: sales-dashboard
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

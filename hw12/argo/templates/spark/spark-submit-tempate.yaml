@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: spark-submit-template
+  namespace: argo
+spec:
+  entrypoint: submit-spark-application
+  templates:
+    - name: submit-spark_application
+      inputs:
+        parameters:
+          - name: spark-application-name
+          - name: spark-image
+          - name: spark-main-file
+          - name: input-path
+          - name: output-path
+          - name: driver-cores
+          - name: driver-memory
+          - name: executor-cores
+          - name: executor-instances
+          - name: executor-memory
+          - name: service-account-name
+      resource:
+        action: create
+        manifest: |
+          apiVersion: sparkoperator.k8s.io/v1beta2
+          kind: SparkApplication
+          metadata:
+            name: {{inputs.parameters.spark-application-name}}
+            namespace: data-jobs
+            labels:
+              app.kubernetes.io/name: {{inputs.parameters.spark-application-name}}
+          spec:
+            type: Python
+            pythonVersion: "3"
+            mode: cluster
+            image: {{inputs.parameters.spark-image}}
+            imagePullPolicy: IfNotPresent
+            mainApplicationFile: {{inputs.parameters.spark-main-file}}
+            sparkVersion: 3.5.5
+            restartPolicy:
+              type: Never
+            timeToLiveSeconds: 300
+            sparkConf:
+              spark.executorEnv.INPUT_PATH: {{inputs.parameters.input-path}}
+              spark.executorEnv.OUTPUT_PATH: {{inputs.parameters.output-path}}
+              spark.kubernetes.driverEnv.INPUT_PATH: {{inputs.parameters.input-path}}
+              spark.kubernetes.driverEnv.OUTPUT_PATH: {{inputs.parameters.output-path}}
+            driver:
+              cores: {{inputs.parameters.driver-cores}}
+              memory: {{inputs.parameters.driver-memory}}
+              serviceAccount: {{inputs.parameters.service-account-name}}
+              labels:
+                role: spark-driver
+            executor:
+              cores: {{inputs.parameters.executor-cores}}
+              instances: {{inputs.parameters.executor-instances}}
+              memory: {{inputs.parameters.executor-memory}}
+              labels:
+                role: spark-executor

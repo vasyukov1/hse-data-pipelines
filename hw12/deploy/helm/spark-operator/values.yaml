@@ -1,0 +1,8 @@
+spark-operator:
+  fullnameOverride: spark-operator
+  sparkJobNamespace:
+    - data-jobs
+  controller:
+    logLevel: info
+  webhook:
+    enable: false

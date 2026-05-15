@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: spark-wait-template
+  namespace: argo
+spec:
+  entrypoint: wait-spark-application
+  templates:
+    - name: wait-spark-application
+      inputs:
+        parameters:
+          - name: spark-application-name
+      container:
+        image: bitnami/kubectl:1.32.2
+        command: [sh, -c]
+        args:
+          - |
+            set -eu
+            app_name="{{inputs.parameters.spark-application-name}}"
+            namespace="data-jobs"
+
+            for _ in $(seq 1 60); do
+              state="$(kubectl get sparkapplication "${app_name}" -n "${namespace}" -o jsonpath='{.status.applicationState.state}' 2>/dev/null || true)"
+              if [ -n "${state}" ]; then
+                echo "Текущее состояние SparkApplication ${app_name}: ${state}"
+              fi
+
+              if [ "${state}" = "COMPLETED" ] || [ "${state}" = "FAILED" ]; then
+                printf '%s' "${state}" > /tmp/run-state.txt
+                exit 0
+              fi
+
+              sleep 10
+            done
+
+            echo "Истекло ожидание завершения SparkApplication ${app_name}" >&2
+            printf '%s' "TIMEOUT" > /tmp/run-state.txt
+            exit 1
+      outputs:
+        parameters:
+          - name: run-state
+            valueFrom:
+              path: /tmp/run-state.txt

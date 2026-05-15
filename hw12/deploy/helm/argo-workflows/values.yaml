@@ -1,0 +1,14 @@
+argo-workflows:
+  fullnameOverride: argo-workflows
+  server:
+    enabled: true
+    extraArgs:
+      - --auth-mode=server
+  workflow:
+    serviceAccount:
+      create: true
+      name: argo-workflow
+  controller:
+    workflowNamespaces:
+      - argo
+      - data-jobs

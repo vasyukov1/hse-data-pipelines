@@ -1,0 +1,376 @@
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/controller/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: true
+metadata:
+  name: spark-operator-controller
+  namespace: default
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/spark/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: true
+metadata:
+  name: spark-operator-spark
+  namespace: default
+  labels: 
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/controller/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spark-operator-controller
+  namespace: default
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/controller/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spark-operator-controller
+  namespace: default
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+subjects:
+- kind: ServiceAccount
+  name: spark-operator-controller
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spark-operator-controller
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/controller/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spark-operator-controller
+  namespace: default
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  resourceNames:
+  - spark-operator-controller-lock
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+  - patch
+- apiGroups:
+  - extensions
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - sparkoperator.k8s.io
+  resources:
+  - sparkapplications
+  - scheduledsparkapplications
+  - sparkconnects
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - sparkoperator.k8s.io
+  resources:
+  - sparkapplications/status
+  - sparkapplications/finalizers
+  - scheduledsparkapplications/status
+  - scheduledsparkapplications/finalizers
+  - sparkconnects/status
+  - sparkconnects/finalizers
+  verbs:
+  - get
+  - update
+  - patch
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/spark/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spark-operator-spark
+  namespace: default
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - configmaps
+  - persistentvolumeclaims
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/controller/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-operator-controller
+  namespace: default
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+subjects:
+- kind: ServiceAccount
+  name: spark-operator-controller
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spark-operator-controller
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/spark/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-operator-spark
+  namespace: default
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+subjects:
+- kind: ServiceAccount
+  name: spark-operator-spark
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spark-operator-spark
+---
+# Source: spark-operator-platform/charts/spark-operator/templates/controller/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-operator-controller
+  labels:
+    helm.sh/chart: spark-operator-2.5.0
+    app.kubernetes.io/name: spark-operator
+    app.kubernetes.io/instance: spark-operator
+    app.kubernetes.io/version: "2.5.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spark-operator
+      app.kubernetes.io/instance: spark-operator
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spark-operator
+        app.kubernetes.io/instance: spark-operator
+        app.kubernetes.io/component: controller
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+      - name: spark-operator-controller
+        image: ghcr.io/kubeflow/spark-operator/controller:2.5.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - controller
+        - start
+        - --zap-log-level=info
+        - --zap-encoder=console
+        - --namespaces=default
+        - --controller-threads=10
+        - --enable-ui-service=true
+        - --enable-metrics=true
+        - --metrics-bind-address=:8080
+        - --metrics-endpoint=/metrics
+        - --metrics-prefix=
+        - --metrics-labels=app_type
+        - --metrics-job-start-latency-buckets=30,60,90,120,150,180,210,240,270,300
+        
+        - --leader-election=true
+        - --leader-election-lock-name=spark-operator-controller-lock
+        - --leader-election-lock-namespace=default
+        - --leader-election-lease-duration=15s
+        - --leader-election-renew-deadline=10s
+        - --leader-election-retry-period=2s
+        - --workqueue-ratelimiter-bucket-qps=50
+        - --workqueue-ratelimiter-bucket-size=500
+        - --workqueue-ratelimiter-max-delay=6h
+        - --driver-pod-creation-grace-period=10s
+        - --max-tracked-executor-per-app=1000
+        - --scheduled-spark-application-timestamp-precision=nanos
+        - --feature-gates=PartialRestart=false,LoadSparkDefaults=false
+        ports:
+        - name: "metrics"
+          containerPort: 8080
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+          readOnly: false
+        livenessProbe:
+          httpGet:
+            port: 8081
+            scheme: HTTP
+            path: /healthz
+        readinessProbe:
+          httpGet:
+            port: 8081
+            scheme: HTTP
+            path: /readyz
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+      volumes:
+      - emptyDir:
+          sizeLimit: 1Gi
+        name: tmp
+      serviceAccountName: spark-operator-controller
+      automountServiceAccountToken: true
+      securityContext:
+        fsGroup: 185

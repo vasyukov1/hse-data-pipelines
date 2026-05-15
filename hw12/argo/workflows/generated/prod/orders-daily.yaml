@@ -1,0 +1,106 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: orders-daily-prod
+  namespace: argo
+  labels:
+    app.kubernetes.io/name: orders-daily-prod
+    app.kubernetes.io/part-of: data-platform-hw12
+    env: prod
+spec:
+  schedule: "0 2 * * *"
+  suspend: false
+  timezone: Europe/Moscow
+  workflowSpec:
+    entrypoint: spark-run-dag
+    serviceAccountName: argo-workflow
+    arguments:
+      parameters:
+        - name: spark-application-name
+          value: "{{workflow.name}}-spark"
+        - name: spark-image
+          value: registry.example.com/data-platform/orders-daily:1.0.0
+        - name: spark-main-file
+          value: local:///opt/spark/app/job.py
+        - name: input-path
+          value: s3a://warehouse-prod/orders/orders.csv
+        - name: output-path
+          value: s3a://warehouse-prod/reports/orders-daily/
+        - name: driver-cores
+          value: "1"
+        - name: driver-memory
+          value: 2g
+        - name: executor-cores
+          value: "1"
+        - name: executor-instances
+          value: "2"
+        - name: executor-memory
+          value: 2g
+        - name: service-account-name
+          value: spark-driver
+        - name: report-title
+          value: Отчёт о боевом запуске витрины продаж
+    templates:
+      - name: spark-run-dag
+        dag:
+          tasks:
+            - name: submit-spark-application
+              templateRef:
+                name: spark-submit-template
+                template: submit-spark-application
+              arguments:
+                parameters:
+                  - name: spark-application-name
+                    value: "{{workflow.parameters.spark-application-name}}"
+                  - name: spark-image
+                    value: "{{workflow.parameters.spark-image}}"
+                  - name: spark-main-file
+                    value: "{{workflow.parameters.spark-main-file}}"
+                  - name: input-path
+                    value: "{{workflow.parameters.input-path}}"
+                  - name: output-path
+                    value: "{{workflow.parameters.output-path}}"
+                  - name: driver-cores
+                    value: "{{workflow.parameters.driver-cores}}"
+                  - name: driver-memory
+                    value: "{{workflow.parameters.driver-memory}}"
+                  - name: executor-cores
+                    value: "{{workflow.parameters.executor-cores}}"
+                  - name: executor-instances
+                    value: "{{workflow.parameters.executor-instances}}"
+                  - name: executor-memory
+                    value: "{{workflow.parameters.executor-memory}}"
+                  - name: service-account-name
+                    value: "{{workflow.parameters.service-account-name}}"
+
+            - name: wait-spark-application
+              depends: submit-spark-application
+              templateRef:
+                name: spark-wait-template
+                template: wait-spark-application
+              arguments:
+                parameters:
+                  - name: spark-application-name
+                    value: "{{workflow.parameters.spark-application-name}}"
+
+            - name: generate-report
+              depends: wait-spark-application
+              templateRef:
+                name: report-template
+                template: generate-report
+              arguments:
+                parameters:
+                  - name: report-title
+                    value: "{{workflow.parameters.report-title}}"
+                  - name: environment
+                    value: prod
+                  - name: workflow-name
+                    value: orders-daily-prod
+                  - name: spark-image
+                    value: "{{workflow.parameters.spark-image}}"
+                  - name: input-path
+                    value: "{{workflow.parameters.input-path}}"
+                  - name: output-path
+                    value: "{{workflow.parameters.output-path}}"
+                  - name: run-state
+                    value: "{{tasks.wait-spark-application.outputs.parameters.run-state}}"
