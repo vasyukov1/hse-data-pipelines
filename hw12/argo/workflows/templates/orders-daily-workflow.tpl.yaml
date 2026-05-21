@@ -8,7 +8,8 @@ metadata:
     app.kubernetes.io/part-of: data-platform-hw12
     env: [[ .Environment ]]
 spec:
-  schedule: "[[ .Schedule ]]"
+  schedules:
+    - "[[ .Schedule ]]"
   suspend: [[ .Suspend ]]
   timezone: Europe/Moscow
   workflowSpec:

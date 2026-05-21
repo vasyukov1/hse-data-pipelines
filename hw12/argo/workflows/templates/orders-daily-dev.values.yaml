@@ -3,7 +3,7 @@ namespace: argo
 environment: dev
 schedule: "0 */6 * * *"
 suspend: false
-sparkImage: registry.example.com/data-platform/orders-daily:dev-{{CI_COMMIT_SHORT_SHA}}
+sparkImage: orders-daily:dev
 sparkMainFile: local:///opt/spark/app/job.py
 inputPath: s3a://warehouse-dev/orders/orders.csv
 outputPath: s3a://warehouse-dev/reports/orders-daily/

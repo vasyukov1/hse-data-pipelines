@@ -6,7 +6,7 @@ metadata:
 spec:
   entrypoint: submit-spark-application
   templates:
-    - name: submit-spark_application
+    - name: submit-spark-application
       inputs:
         parameters:
           - name: spark-application-name

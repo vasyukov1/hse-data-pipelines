@@ -1,4 +1,4 @@
-apiVersion: argoproj.io/v1alpha1
+kubectl get pods -n showcaseapiVersion: argoproj.io/v1alpha1
 kind: CronWorkflow
 metadata:
   name: orders-daily-prod
@@ -8,7 +8,8 @@ metadata:
     app.kubernetes.io/part-of: data-platform-hw12
     env: prod
 spec:
-  schedule: "0 2 * * *"
+  schedules:
+    - "0 2 * * *"
   suspend: false
   timezone: Europe/Moscow
   workflowSpec:

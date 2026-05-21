@@ -3,9 +3,9 @@ kind: Deployment
 metadata:
   name: sales-dashboard
 spec:
-  replicas: 3
+  replicas: 1
   template:
     spec:
       containers:
         - name: sales-dashboard
-          image: registry.example.com/data-platform/sales-dashboard:1.0.0
+          image: sales-dashboard:dev

@@ -1,76 +1,69 @@
 stages:
   - check
-  - build
   - workflow
   - deploy
 
 variables:
   REGISTRY_SPARK_IMAGE: $CI_REGISTRY_IMAGE/orders-daily
   REGISTRY_SHOWCASE_IMAGE: $CI_REGISTRY_IMAGE/sales-dashboard
+  SPARK_IMAGE_TAG: dev
+  SHOWCASE_IMAGE_TAG: dev
   HELM_CACHE_HOME: "$CI_PROJECT_DIR/.helm/cache"
   HELM_CONFIG_HOME: "$CI_PROJECT_DIR/.helm/config"
   HELM_DATA_HOME: "$CI_PROJECT_DIR/.helm/data"
+  PROJECT_DIR: "$CI_PROJECT_DIR"
 
-before_scripts:
-  - cd hw12
+before_script:
+  - if [ -d hw12 ]; then cd hw12; else cd "$CI_PROJECT_DIR"; fi
 
 code-check:
   stage: check
-  image: golang:1.26
+  image: alpine:latest
   before_script:
-    - apt-get update
-    - apt-get install -y python3 curl
+    - apk add --no-cache bash curl python3 tar
+    - curl -fsSL https://go.dev/dl/go1.26.1.linux-amd64.tar.gz -o /tmp/go.tar.gz
+    - rm -rf /usr/local/go
+    - tar -C /usr/local -xzf /tmp/go.tar.gz
+    - export PATH="/usr/local/go/bin:$PATH"
     - curl -fsSL https://dl.k8s.io/release/v1.32.2/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
     - chmod +x /usr/local/bin/kubectl
-    - cd hw12
+    - if [ -d hw12 ]; then cd hw12; else cd "$CI_PROJECT_DIR"; fi
   script:
+    - go version
     - go test ./...
     - python3 -m py_compile apps/spark/orders_daily/src/job.py
     - ./scripts/generate-workflows.sh
     - kubectl kustomize deploy/kustomize/showcase/overlays/dev >/dev/null
     - kubectl kustomize deploy/kustomize/showcase/overlays/prod >/dev/null
-  artifacts:
-    paths:
-      - hw12/argo/workflows/generated/
-
-build-spark-image:
-  stage: build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  script:
-    - /kaniko/executor --context "$CI_PROJECT_DIR/hw12/apps/spark/orders_daily" --dockerfile "$CI_PROJECT_DIR/hw12/apps/spark/orders_daily/Dockerfile" --destination "$REGISTRY_SPARK_IMAGE:$CI_COMMIT_SHORT_SHA"
-
-
-build-showcase:
-  stage: build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  script:
-    - /kaniko/executor --context "$CI_PROJECT_DIR/hw12/apps/showcase/sales_dashboard" --dockerfile "$CI_PROJECT_DIR/hw12/apps/showcase/sales_dashboard/Dockerfile" --destination "$REGISTRY_SHOWCASE_IMAGE:$CI_COMMIT_SHORT_SHA"
 
 generation-workflow:
   stage: workflow
-  image: golang:1.26
+  image: alpine:latest
   before_script:
-    - cd hw12
+    - apk add --no-cache bash curl tar
+    - curl -fsSL https://go.dev/dl/go1.26.1.linux-amd64.tar.gz -o /tmp/go.tar.gz
+    - rm -rf /usr/local/go
+    - tar -C /usr/local -xzf /tmp/go.tar.gz
+    - export PATH="/usr/local/go/bin:$PATH"
+    - if [ -d hw12 ]; then cd hw12; else cd "$CI_PROJECT_DIR"; fi
   script:
-    - sed "s#registry.example.com/data-platform/orders-daily:dev-{{CI_COMMIT_SHORT_SHA}}#$REGISTRY_SPARK_IMAGE:$CI_COMMIT_SHORT_SHA#g" argo/workflows/templates/orders-daily-dev.values.yaml > /tmp/orders-daily-dev.values.yaml
+    - go version
+    - sed "s#orders-daily:dev#$REGISTRY_SPARK_IMAGE:$SPARK_IMAGE_TAG#g" argo/workflows/templates/orders-daily-dev.values.yaml > /tmp/orders-daily-dev.values.yaml
     - go run ./cmd/workflowgen -config /tmp/orders-daily-dev.values.yaml -template argo/workflows/templates/orders-daily-workflow.tpl.yaml -output argo/workflows/generated/dev/orders-daily.yaml
   artifacts:
     paths:
-      - hw12/argo/workflows/generated/dev/orders-daily.yaml
+      - argo/workflows/generated/dev/orders-daily.yaml
 
 deploy-platform-dev:
   stage: deploy
-  image: alpine:3.20
+  image: alpine:latest
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   before_script:
     - apk add --no-cache bash curl kubectl
-    - cd hw12
+    - if [ -d hw12 ]; then cd hw12; else cd "$CI_PROJECT_DIR"; fi
   script:
+    - sed -i "s#sales-dashboard:dev#$REGISTRY_SHOWCASE_IMAGE:$SHOWCASE_IMAGE_TAG#g" deploy/kustomize/showcase/overlays/dev/patch-deployment.yaml
     - ./scripts/bootstrap-tools.sh
     - ./scripts/render-helm.sh >/dev/null
     - ./scripts/deploy-platform.sh dev

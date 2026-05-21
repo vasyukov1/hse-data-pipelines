@@ -10,11 +10,12 @@ spec:
   template:
     metadata:
       labels:
-        apps: sales-dashboard
+        app: sales-dashboard
     spec:
       containers:
         - name: sales-dashboard
-          image: regisrty.example.com/data-platform/sales-dashboard:0.1.0
+          image: sales-dashboard:base
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           volumeMounts:

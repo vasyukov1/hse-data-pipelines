@@ -13,4 +13,4 @@ executorCores: 1
 executorInstances: 2
 executorMemory: 2g
 serviceAccountName: spark-driver
-reportTitle: Отчёт о боевом запуске витрины продаж
+reportTitle: Отчёт о запуске витрины продаж на prod
